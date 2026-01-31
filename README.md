@@ -43,7 +43,7 @@
 
 ### 1. โคลนโปรเจกต์ (Clone)
 ```bash
-git clone https://github.com/your-username/ai-market-analysis-platform.git
+git clone https://github.com/guitarzlick2541/ai-market-analysis-platform.git
 cd ai-market-analysis-platform
 ```
 

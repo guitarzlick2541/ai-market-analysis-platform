@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+import os
 from contextlib import asynccontextmanager
 
 # Import routers
@@ -35,12 +36,12 @@ app = FastAPI(
 )
 
 # CORS Configuration
+origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+allow_origins = [origin.strip() for origin in origins_str.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,7 +52,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(market.router, prefix="/api/market", tags=["Market Data"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI Predictions"])
 app.include_router(watchlist.router, prefix="/api/watchlist", tags=["Watchlist"])
-app.include_router(news.router, prefix="/api/news", tags=["News & Sentiment"])
+# app.include_router(news.router, prefix="/api/news", tags=["News & Sentiment"])  # Deprecated: Use /api/market/news instead
 
 # WebSocket endpoint
 app.include_router(market_ws.router, tags=["WebSocket"])

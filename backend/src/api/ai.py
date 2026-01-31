@@ -11,12 +11,20 @@ from datetime import datetime
 import yfinance as yf
 import numpy as np
 import time
+import httpx
+import os
+import asyncio
+
 
 router = APIRouter()
 
 # ===== Cache for AI predictions =====
 prediction_cache: Dict[str, Dict[str, Any]] = {}
 PREDICTION_CACHE_TTL = 60  # วินาที
+
+# ===== AI Service Config =====
+AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://localhost:8001")
+
 
 # ===== Pydantic Models =====
 
@@ -125,9 +133,83 @@ def calculate_volatility(prices: np.ndarray, period: int = 20) -> float:
     return round(volatility, 2)
 
 
+    return round(volatility, 2)
+
+
+# ===== AI Service Integration =====
+
+async def call_ai_service(asset: str, technicals: Dict[str, Any], current_price: float) -> Optional[AISignal]:
+    """
+    Call the external AI Service (Port 8001) to generate signal
+    Combines TFT (Time Series), FinBERT (Sentiment), and Technicals
+    """
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            # 1. Get Price Prediction (Model: TFT)
+            tft_response = await client.post(
+                f"{AI_SERVICE_URL}/predict/tft", 
+                json={"asset": asset, "features": []}
+            )
+            if tft_response.status_code != 200:
+                return None
+            price_pred = tft_response.json()["data"]
+            
+            # 2. Get Market Sentiment (Model: FinBERT)
+            sentiment_response = await client.get(f"{AI_SERVICE_URL}/sentiment/{asset}")
+            if sentiment_response.status_code != 200:
+                return None
+            sentiment_data = sentiment_response.json()
+            
+            # Format sentiment for signal engine
+            sentiment_input = {
+                "sentiment": sentiment_data["overall_sentiment"],
+                "confidence": sentiment_data["sentiment_score"],
+                "scores": {} 
+            }
+
+            # 3. Generate Final Signal (Signal Engine)
+            signal_payload = {
+                "asset": asset,
+                "price_prediction": price_pred,
+                "sentiment": sentiment_input,
+                "technical_indicators": technicals
+            }
+            
+            signal_response = await client.post(f"{AI_SERVICE_URL}/api/signal", json=signal_payload)
+            # Note: client might need /signal or /api/signal depending on router?
+            # ai-service/main.py has @app.post("/signal") -> so /signal
+            if signal_response.status_code == 404:
+                 signal_response = await client.post(f"{AI_SERVICE_URL}/signal", json=signal_payload)
+            
+            if signal_response.status_code != 200:
+                return None
+                
+            data = signal_response.json()["data"]
+            
+            # Convert to internal model
+            # Map risk_level from ENUM to string if needed
+            
+            return AISignal(
+                asset=data["asset"],
+                timestamp=datetime.utcnow().isoformat(),
+                signal=data["signal"],
+                confidence=float(data["confidence"]),
+                trend=data["trend"],
+                risk_level=data["risk_level"],
+                predicted_price=float(data["predicted_price"]),
+                predicted_range=PredictionRange(**data["predicted_range"]),
+                feature_importance=[FeatureImportance(**f) for f in data["feature_importance"]],
+                reasoning=data["reasoning"] + " (Powered by Deep Learning)"
+            )
+            
+    except Exception as e:
+        print(f"AI Service Connection Failed: {e}")
+        return None
+
+
 # ===== Real AI Prediction =====
 
-def generate_real_prediction(asset: str) -> AISignal:
+async def generate_real_prediction(asset: str) -> AISignal:
     """
     Generate AI prediction using REAL market data from yfinance
     Analyzes technical indicators to produce signal
@@ -166,6 +248,32 @@ def generate_real_prediction(asset: str) -> AISignal:
         # คำนวณ risk level จาก volatility และ RSI
         risk_level = _calculate_risk(rsi, volatility)
         
+        # Prepare technicals dict for AI Service
+        technicals = {
+            "rsi": rsi,
+            "macd": macd["macd"],
+            "volatility": volatility,
+            "ema_12": mas["ema_12"],
+            "ema_26": mas["ema_26"]
+        }
+
+        # ---------------------------------------------------------
+        # OPTION B: Try to call AI Service (Deep Learning)
+        # ---------------------------------------------------------
+        ai_service_result = await call_ai_service(asset, technicals, current_price)
+        
+        if ai_service_result:
+            # Save to cache and return if successful
+            prediction_cache[asset.upper()] = {
+                "data": ai_service_result,
+                "timestamp": current_time
+            }
+            return ai_service_result
+            
+        # ---------------------------------------------------------
+        # FALLBACK: Use Local Rule-based Logic (if AI Service fails)
+        # ---------------------------------------------------------
+        
         # สร้าง price prediction range
         price_change = (current_price - prev_close) / prev_close if prev_close > 0 else 0
         predicted_price = current_price * (1 + price_change * 0.5)  # Momentum-based prediction
@@ -194,7 +302,7 @@ def generate_real_prediction(asset: str) -> AISignal:
             predicted_price=round(predicted_price, 2),
             predicted_range=PredictionRange(**price_range),
             feature_importance=feature_importance,
-            reasoning=reasoning
+            reasoning=reasoning + " (Fallback: Rule-based)"
         )
         
         # บันทึกลง cache
@@ -408,7 +516,8 @@ async def get_prediction(request: PredictionRequest):
     Get AI prediction for an asset
     Uses real market data with technical analysis
     """
-    return generate_real_prediction(request.asset)
+
+    return await generate_real_prediction(request.asset)
 
 
 @router.get("/signals/{asset}", response_model=AISignal)
@@ -419,7 +528,8 @@ async def get_signal(
     """
     Get trading signal for a specific asset using real market data
     """
-    return generate_real_prediction(asset)
+
+    return await generate_real_prediction(asset)
 
 
 @router.get("/signals", response_model=List[AISignal])
@@ -427,8 +537,12 @@ async def get_all_signals():
     """
     Get trading signals for all major assets using real data
     """
+
     assets = ["BTC-USD", "ETH-USD", "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "XAU-USD"]
-    return [generate_real_prediction(asset) for asset in assets]
+    
+    # Use asyncio.gather for parallel fetching
+    tasks = [generate_real_prediction(asset) for asset in assets]
+    return await asyncio.gather(*tasks)
 
 
 @router.post("/sentiment", response_model=SentimentScore)
