@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Base Styles ===== */
+:root {
+  --accent-green: #00FF88;
+  --accent-cyan: #00D4FF;
+  --dark-900: #0A0A0F;
+  --dark-800: #12121A;
+  --dark-700: #1A1A25;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--dark-900);
+  color: #E2E8F0;
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ===== Glassmorphism Utilities ===== */
+@layer components {
+  .glass-card {
+    @apply bg-dark-800/60 backdrop-blur-xl border border-white/10 rounded-2xl;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    @apply border-accent-green/30;
+    box-shadow: 0 8px 32px rgba(0, 255, 136, 0.1);
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent-green to-accent-cyan;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-to-r from-accent-green to-accent-cyan text-dark-900 font-semibold rounded-xl;
+    @apply transition-all duration-300 hover:shadow-glow-green hover:scale-[1.02];
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 border border-accent-green/50 text-accent-green rounded-xl;
+    @apply transition-all duration-300 hover:bg-accent-green/10;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-gray-400 hover:text-white transition-colors duration-200;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-xl;
+    @apply text-white placeholder-gray-500 outline-none;
+    @apply focus:border-accent-green/50 focus:ring-1 focus:ring-accent-green/30;
+    @apply transition-all duration-200;
+  }
+
+  /* Signal Badges */
+  .signal-buy {
+    @apply px-3 py-1 bg-signal-buy/20 text-signal-buy border border-signal-buy/30 rounded-full text-sm font-semibold;
+  }
+
+  .signal-sell {
+    @apply px-3 py-1 bg-signal-sell/20 text-signal-sell border border-signal-sell/30 rounded-full text-sm font-semibold;
+  }
+
+  .signal-hold {
+    @apply px-3 py-1 bg-signal-hold/20 text-signal-hold border border-signal-hold/30 rounded-full text-sm font-semibold;
+  }
+
+  /* Sentiment Badges */
+  .sentiment-positive {
+    @apply text-sentiment-positive;
+  }
+
+  .sentiment-neutral {
+    @apply text-sentiment-neutral;
+  }
+
+  .sentiment-negative {
+    @apply text-sentiment-negative;
+  }
+
+  /* Sidebar Navigation */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 text-gray-400 rounded-xl;
+    @apply transition-all duration-200;
+  }
+
+  .nav-item:hover {
+    @apply bg-dark-700 text-white;
+  }
+
+  .nav-item.active {
+    @apply bg-accent-green/10 text-accent-green border-l-2 border-accent-green;
+  }
+}
+
+/* ===== Scrollbar Styling ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dark-800);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f5a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5a5a7a;
+}
+
+/* ===== Custom Animations ===== */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(0, 255, 136, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ===== Chart Container ===== */
+.chart-container {
+  @apply w-full h-full min-h-[400px] rounded-xl overflow-hidden;
+  background: linear-gradient(180deg, rgba(18, 18, 26, 0.8) 0%, rgba(10, 10, 15, 0.9) 100%);
+}
+
+/* ===== Loading Animation ===== */
+.loading-spinner {
+  @apply w-8 h-8 border-2 border-accent-green/30 border-t-accent-green rounded-full;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
