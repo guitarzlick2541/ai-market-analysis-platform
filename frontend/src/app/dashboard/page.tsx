@@ -160,6 +160,7 @@ export default function DashboardPage() {
     // Fetch AI Signal for selected asset
     const fetchAISignal = useCallback(async () => {
         setIsSignalLoading(true)
+        setAiSignal(null) // Clear previous data to show loading state
         try {
             const response = await fetch(`${API_BASE_URL}/api/ai/signals/${selectedAsset}`)
             if (response.ok) {
